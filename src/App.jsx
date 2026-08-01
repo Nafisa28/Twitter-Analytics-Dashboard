@@ -1,12 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import ChartSection from './components/ChartSection';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   ComposedChart, Line, Cell, LineChart
 } from 'recharts';
 import {
-  Clock, TrendingUp, Database,
-  Heart, Award, Eye, Sparkles, Sliders
+  Clock, Settings
 } from 'lucide-react';
 
 // Custom Tooltip component for Recharts
@@ -17,7 +16,7 @@ const CustomTooltip = ({ active, payload, label, unit = '' }) => {
         <p className="tooltip-title">{label}</p>
         {payload.map((item, idx) => (
           <div key={idx} className="tooltip-item">
-            <span style={{ color: item.color || '#3b82f6' }} className="font-semibold">{item.name}:</span>
+            <span style={{ color: item.color || '#2563eb' }} className="tooltip-key">{item.name}:</span>
             <span className="text-accent-number">
               {item.value.toLocaleString(undefined, { maximumFractionDigits: 4 })}{unit}
             </span>
@@ -51,6 +50,23 @@ export function App() {
   const [isTesting, setIsTesting] = useState(false);
   const [simulatedHour, setSimulatedHour] = useState('15');
   const [simulatedMinute, setSimulatedMinute] = useState('30');
+  const [isTestingPopoverOpen, setIsTestingPopoverOpen] = useState(false);
+  const testingPopoverRef = useRef(null);
+  const testingButtonRef = useRef(null);
+  const [activeTab, setActiveTab] = useState('overview');
+
+  useEffect(() => {
+    const onMouseDown = (e) => {
+      if (!isTestingPopoverOpen) return;
+      const pop = testingPopoverRef.current;
+      const btn = testingButtonRef.current;
+      if (!pop || !btn) return;
+      if (pop.contains(e.target) || btn.contains(e.target)) return;
+      setIsTestingPopoverOpen(false);
+    };
+    window.addEventListener('mousedown', onMouseDown);
+    return () => window.removeEventListener('mousedown', onMouseDown);
+  }, [isTestingPopoverOpen]);
 
   // Update real-world clock every second
   useEffect(() => {
@@ -92,6 +108,16 @@ export function App() {
     }
     return realIST || '--:--:--';
   }, [isTesting, simulatedHour, simulatedMinute, realIST]);
+
+  const palette = useMemo(() => ({
+    media: '#2563eb',
+    link: '#14b8a6',
+    hashtag: '#f97316',
+    neutral: '#6b7280',
+    grid: '#e5e7eb',
+    axis: '#9ca3af',
+    tick: '#374151'
+  }), []);
 
   // Global KPIs
   const kpis = useMemo(() => {
@@ -304,18 +330,18 @@ export function App() {
   // Loading / error states
   if (loadError) {
     return (
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'100vh', background:'#090d16', color:'#f87171', fontFamily:'Inter,sans-serif', textAlign:'center', padding:'2rem' }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'100vh', background:'#f3f4f6', color:'#b91c1c', fontFamily:'Inter,sans-serif', textAlign:'center', padding:'2rem' }}>
         <div>
           <div style={{ fontSize:'2rem', marginBottom:'1rem' }}>⚠️</div>
           <h2 style={{ marginBottom:'0.5rem' }}>Failed to load tweets.json</h2>
-          <p style={{ color:'#94a3b8', fontSize:'0.9rem' }}>{loadError}</p>
+          <p style={{ color:'#6b7280', fontSize:'0.9rem' }}>{loadError}</p>
         </div>
       </div>
     );
   }
   if (!tweetsData) {
     return (
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'100vh', background:'#090d16', color:'#94a3b8', fontFamily:'Inter,sans-serif', textAlign:'center' }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'100vh', background:'#f3f4f6', color:'#6b7280', fontFamily:'Inter,sans-serif', textAlign:'center' }}>
         <div>
           <div style={{ fontSize:'2rem', marginBottom:'1rem', animation:'spin 1s linear infinite' }}>⏳</div>
           <p>Loading analytics data…</p>
@@ -324,339 +350,416 @@ export function App() {
     );
   }
 
+  const tabs = [
+    { key: 'overview', label: 'Overview' },
+    { key: 'task1', label: 'Category Breakdown' },
+    { key: 'task2', label: 'Engagement Comparison' },
+    { key: 'task3', label: 'Media by Weekday' },
+    { key: 'task4', label: 'Replies/RTs/Likes' },
+    { key: 'task5', label: 'Monthly Trend' },
+    { key: 'task6', label: 'Top Tweets' }
+  ];
+
   return (
-    <div className="dashboard-container">
-      {/* Header Panel */}
-      <header className="dashboard-header">
-        <div style={{ maxWidth: '1400px', margin: '0 auto', width: '100%' }}>
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-2xl">📊</span>
-                <h1 className="text-2xl font-extrabold tracking-tight text-gradient">Twitter Analytics Dashboard</h1>
+    <div className="report-shell">
+      <header className="report-header">
+        <div className="report-header-inner">
+          <div className="report-header-top">
+            <div className="report-title">
+              <div className="report-title-row">
+                <span className="report-emoji" aria-hidden="true">📊</span>
+                <h1>Twitter analytics dashboard</h1>
               </div>
-              <p className="text-xs text-slate-400 mt-1">
-                Visualizing Twitter campaign performance from June to October 2020 · {kpis.total.toLocaleString()} tweets loaded
-              </p>
+              <div className="report-subtitle">
+                Dataset: June–October 2020 · {kpis.total.toLocaleString()} cleaned tweets loaded
+              </div>
             </div>
 
-            {/* Clock & Testing Controls */}
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-              {/* IST Clock */}
-              <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-lg px-4 py-2 shadow-sm">
-                <Clock className="w-4 h-4" style={{ color: '#14b8a6' }} />
-                <div>
-                  <div className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">Current IST Clock</div>
-                  <div className="text-sm font-bold text-slate-200 tracking-wider font-mono">{currentISTTime}</div>
-                </div>
+            <div className="report-header-actions">
+              <div className="header-clock">
+                <Clock size={14} />
+                <span className="header-clock-label">{currentISTTime}</span>
               </div>
 
-              {/* Demo Mode Toggle */}
-              <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-lg px-4 py-2 shadow-sm">
-                <Sliders className="w-4 h-4" style={{ color: '#a855f7' }} />
-                <div>
-                  <div className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">Demo Override</div>
-                  <label className="flex items-center gap-1.5 cursor-pointer mt-0.5">
-                    <input
-                      type="checkbox"
-                      id="testing-mode-toggle"
-                      checked={isTesting}
-                      onChange={(e) => setIsTesting(e.target.checked)}
-                      style={{ width:'14px', height:'14px', accentColor:'#a855f7' }}
-                    />
-                    <span className="text-xs font-semibold text-slate-300">Enable Test Mode</span>
-                  </label>
-                </div>
+              <div className="popover-root">
+                <button
+                  ref={testingButtonRef}
+                  type="button"
+                  className="icon-btn"
+                  aria-haspopup="dialog"
+                  aria-expanded={isTestingPopoverOpen}
+                  onClick={() => setIsTestingPopoverOpen(v => !v)}
+                  title="Testing mode settings"
+                >
+                  <Settings size={16} />
+                </button>
+                {isTestingPopoverOpen ? (
+                  <div ref={testingPopoverRef} className="popover">
+                    <div className="popover-title">Testing Mode — for demo purposes only</div>
+                    <label className="toggle-row">
+                      <input
+                        type="checkbox"
+                        checked={isTesting}
+                        onChange={(e) => setIsTesting(e.target.checked)}
+                      />
+                      <span>Enable testing mode</span>
+                    </label>
+
+                    <div className="popover-grid">
+                      <div className="popover-field">
+                        <div className="popover-label">Simulate hour</div>
+                        <select
+                          value={simulatedHour}
+                          onChange={(e) => setSimulatedHour(e.target.value)}
+                          disabled={!isTesting}
+                        >
+                          {Array.from({ length: 24 }).map((_, i) => {
+                            const val = String(i).padStart(2, '0');
+                            const label = i >= 12 ? `${i === 12 ? 12 : i - 12} PM` : `${i === 0 ? 12 : i} AM`;
+                            return <option key={val} value={val}>{val}:xx ({label})</option>;
+                          })}
+                        </select>
+                      </div>
+                      <div className="popover-field">
+                        <div className="popover-label">Minute</div>
+                        <select
+                          value={simulatedMinute}
+                          onChange={(e) => setSimulatedMinute(e.target.value)}
+                          disabled={!isTesting}
+                        >
+                          {['00', '10', '20', '30', '40', '50'].map(val => (
+                            <option key={val} value={val}>{val}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="popover-actions">
+                      <button
+                        type="button"
+                        className="btn"
+                        onClick={() => {
+                          setIsTesting(false);
+                        }}
+                      >
+                        Reset to live
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>
 
-          {/* Testing Mode Dropdowns */}
-          {isTesting && (
-            <div className="testing-panel">
-              <div className="testing-title">
-                <Sparkles className="w-4 h-4" />
-                <span>Testing Mode — overrides real IST time for demo purposes only</span>
-              </div>
-              <div className="testing-controls">
-                <div className="flex items-center gap-1">
-                  <span className="text-xs text-slate-400">Simulate Hour:</span>
-                  <select
-                    id="simulated-hour"
-                    value={simulatedHour}
-                    onChange={(e) => setSimulatedHour(e.target.value)}
-                    className="custom-select"
-                  >
-                    {Array.from({ length: 24 }).map((_, i) => {
-                      const val = String(i).padStart(2, '0');
-                      const label = i >= 12 ? `${i === 12 ? 12 : i - 12} PM` : `${i === 0 ? 12 : i} AM`;
-                      return <option key={val} value={val}>{val}:xx ({label})</option>;
-                    })}
-                  </select>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="text-xs text-slate-400">Minute:</span>
-                  <select
-                    id="simulated-minute"
-                    value={simulatedMinute}
-                    onChange={(e) => setSimulatedMinute(e.target.value)}
-                    className="custom-select"
-                  >
-                    {['00', '10', '20', '30', '40', '50'].map(val => (
-                      <option key={val} value={val}>{val}</option>
-                    ))}
-                  </select>
-                </div>
-                <button onClick={() => setIsTesting(false)} className="btn-secondary">Reset to Live</button>
-              </div>
-            </div>
-          )}
-
-          {/* Quick Navigation */}
-          <nav className="mt-4 flex items-center gap-2">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider mr-2 hidden md:inline">Jump To:</span>
-            <div className="nav-pills">
-              <a href="#task1" className="nav-pill-btn">Category Breakdown</a>
-              <a href="#task2" className="nav-pill-btn">Engagement Comparison</a>
-              <a href="#task3" className="nav-pill-btn">Media by Weekday</a>
-              <a href="#task4" className="nav-pill-btn">Replies/RTs/Likes</a>
-              <a href="#task5" className="nav-pill-btn">Engagement Trend</a>
-              <a href="#task6" className="nav-pill-btn">Top Tweets</a>
-            </div>
+          <nav className="tab-bar" aria-label="Report tabs">
+            {tabs.map(t => (
+              <button
+                key={t.key}
+                type="button"
+                className={`tab-btn ${activeTab === t.key ? 'tab-btn--active' : ''}`}
+                onClick={() => setActiveTab(t.key)}
+              >
+                {t.label}
+              </button>
+            ))}
           </nav>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="dashboard-main">
-        {/* KPI Cards */}
-        <section className="mb-8">
-          <div className="metrics-summary-grid">
-            <div className="dashboard-card card-accent-blue flex items-center gap-4">
-              <div className="p-3 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-lg"><Database className="w-6 h-6" /></div>
-              <div>
-                <div className="kpi-title">Cleaned Tweets</div>
-                <div className="kpi-value font-mono text-slate-100">{kpis.total.toLocaleString()}</div>
-                <div className="text-[10px] text-slate-500 font-semibold mt-0.5">FROM 1,181 ORIGINAL ROWS</div>
+      <main className="report-main">
+        {activeTab === 'overview' ? (
+          <div className="overview">
+            <div className="kpi-grid">
+              <div className="kpi-card">
+                <div className="kpi-title">Total tweets</div>
+                <div className="kpi-value">{kpis.total.toLocaleString()}</div>
+                <div className="kpi-subtext">From 1,181 original rows</div>
+              </div>
+              <div className="kpi-card">
+                <div className="kpi-title">Total impressions</div>
+                <div className="kpi-value">{kpis.totalImpressions.toLocaleString()}</div>
+                <div className="kpi-subtext">Across all tweets</div>
+              </div>
+              <div className="kpi-card">
+                <div className="kpi-title">Avg engagement rate</div>
+                <div className="kpi-value">{kpis.avgEngagementRate.toFixed(3)}%</div>
+                <div className="kpi-subtext">Engagements / impressions</div>
+              </div>
+              <div className="kpi-card">
+                <div className="kpi-title">Total likes</div>
+                <div className="kpi-value">{kpis.totalLikes.toLocaleString()}</div>
+                <div className="kpi-subtext">Across all tweets</div>
               </div>
             </div>
-            <div className="dashboard-card card-accent-teal flex items-center gap-4">
-              <div className="p-3 bg-teal-500/10 border border-teal-500/20 text-teal-400 rounded-lg"><Eye className="w-6 h-6" /></div>
-              <div>
-                <div className="kpi-title">Total Impressions</div>
-                <div className="kpi-value font-mono text-slate-100">{kpis.totalImpressions.toLocaleString()}</div>
-                <div className="text-[10px] text-slate-500 font-semibold mt-0.5">ACROSS ALL CAMPAIGNS</div>
-              </div>
-            </div>
-            <div className="dashboard-card card-accent-purple flex items-center gap-4">
-              <div className="p-3 bg-purple-500/10 border border-purple-500/20 text-purple-400 rounded-lg"><TrendingUp className="w-6 h-6" /></div>
-              <div>
-                <div className="kpi-title">Avg Engagement Rate</div>
-                <div className="kpi-value font-mono text-slate-100">{kpis.avgEngagementRate.toFixed(3)}%</div>
-                <div className="text-[10px] text-slate-500 font-semibold mt-0.5">ENGAGEMENTS / IMPRESSIONS</div>
-              </div>
-            </div>
-            <div className="dashboard-card card-accent-rose flex items-center gap-4">
-              <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-lg"><Heart className="w-6 h-6" /></div>
-              <div>
-                <div className="kpi-title">Total Likes</div>
-                <div className="kpi-value font-mono text-slate-100">{kpis.totalLikes.toLocaleString()}</div>
-                <div className="text-[10px] text-slate-500 font-semibold mt-0.5">ACROSS ALL TWEETS</div>
-              </div>
+
+            <div className="overview-note">
+              This report visualizes a cleaned Twitter export with pre-verified filters and aggregations. Use the tabs to explore each task.
             </div>
           </div>
-        </section>
-
-        {/* 6 Task Sections */}
-        <div className="sections-stack">
+        ) : null}
 
           {/* TASK 1 */}
+        {activeTab === 'task1' ? (
           <ChartSection
             id="task1"
-            title="Task 1 — Tweet Interaction Breakdown by Category"
-            description="Comparison of URL clicks, profile clicks, and hashtag clicks across media, link, and hashtag tweet categories."
+            title="Task 1 — tweet interaction breakdown by category"
+            description="URL clicks, profile clicks, and hashtag clicks by tweet category."
             filters={["Even tweetDate", "wordCount > 40", "At least 1 click type > 0"]}
             windows={[{ start: "15:00", end: "17:00" }]}
             overrideTime={overrideTime}
             dataCount={task1DataObj.count}
-            caveatMessage="The dataset's maximum tweet word count is 36 words. The filter 'wordCount > 40' as specified in the task requirements therefore matches zero tweets in this dataset. This is a data characteristic, not a bug — the filter is implemented exactly as specified."
-            accentClass="card-accent-blue"
+            caveatMessage="The dataset's maximum tweet word count is 36 words. The filter 'wordCount > 40' therefore matches zero tweets in this dataset. This is a data characteristic, not a bug."
           >
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={task1DataObj.chartData} margin={{ top: 20, right: 30, left: 10, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#212c40" />
-                <XAxis dataKey="category" stroke="#94a3b8" />
-                <YAxis stroke="#94a3b8" />
-                <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(33,44,64,0.2)' }} />
-                <Legend />
-                <Bar dataKey="URL Clicks"     fill="#3b82f6" radius={[4,4,0,0]} />
-                <Bar dataKey="Profile Clicks" fill="#14b8a6" radius={[4,4,0,0]} />
-                <Bar dataKey="Hashtag Clicks" fill="#a855f7" radius={[4,4,0,0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            <div style={{ width: '100%', height: 320 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={task1DataObj.chartData} margin={{ top: 10, right: 24, left: 16, bottom: 24 }}>
+                  <CartesianGrid stroke={palette.grid} strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="category"
+                    stroke={palette.axis}
+                    tick={{ fill: palette.tick, fontSize: 12 }}
+                    label={{ value: 'Tweet category', position: 'insideBottom', offset: -10, fill: palette.tick, fontSize: 12 }}
+                  />
+                  <YAxis
+                    stroke={palette.axis}
+                    tick={{ fill: palette.tick, fontSize: 12 }}
+                    label={{ value: 'Clicks', angle: -90, position: 'insideLeft', fill: palette.tick, fontSize: 12 }}
+                  />
+                  <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(17,24,39,0.04)' }} />
+                  <Legend />
+                  <Bar dataKey="URL Clicks" fill={palette.media} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="Profile Clicks" fill={palette.link} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="Hashtag Clicks" fill={palette.hashtag} radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </ChartSection>
+        ) : null}
 
           {/* TASK 2 */}
+        {activeTab === 'task2' ? (
           <ChartSection
             id="task2"
-            title="Task 2 — Engagement Rate Comparison (App Opens)"
-            description="Average engagement rate comparison between tweets that generated app opens vs. those that did not."
+            title="Task 2 — engagement rate comparison"
+            description="Average engagement rate for tweets with app opens vs. without app opens."
             filters={["HourUTC 9–17", "Weekday Mon–Fri", "Even impressions", "Odd tweetDate", "charCount > 30", "Exclude letter 'D'"]}
             windows={[{ start: "07:00", end: "11:00" }, { start: "12:00", end: "18:00" }]}
             overrideTime={overrideTime}
             dataCount={task2DataObj.count}
-            caveatMessage="The 'exclude letter D' filter is extremely restrictive — D appears in nearly all English words. Only 5 tweets matched all criteria. Of those, 0 had app opens > 0, so the 'App Opens > 0' bar will render at 0%."
-            accentClass="card-accent-purple"
+            caveatMessage="The filter excluding the letter D is extremely restrictive. Only 5 tweets matched all criteria, and none had app opens > 0."
           >
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={task2DataObj.chartData} margin={{ top: 20, right: 30, left: 10, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#212c40" />
-                <XAxis dataKey="group" stroke="#94a3b8" />
-                <YAxis stroke="#94a3b8" unit="%" />
-                <Tooltip content={<CustomTooltip unit="%" />} cursor={{ fill: 'rgba(33,44,64,0.2)' }} />
-                <Legend />
-                <Bar dataKey="Engagement Rate" name="Avg Engagement Rate" radius={[4,4,0,0]}>
-                  <Cell fill="#a855f7" />
-                  <Cell fill="#e11d48" />
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            <div style={{ width: '100%', height: 320 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={task2DataObj.chartData} margin={{ top: 10, right: 24, left: 16, bottom: 24 }}>
+                  <CartesianGrid stroke={palette.grid} strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="group"
+                    stroke={palette.axis}
+                    tick={{ fill: palette.tick, fontSize: 12 }}
+                    label={{ value: 'Group', position: 'insideBottom', offset: -10, fill: palette.tick, fontSize: 12 }}
+                  />
+                  <YAxis
+                    stroke={palette.axis}
+                    tick={{ fill: palette.tick, fontSize: 12 }}
+                    unit="%"
+                    label={{ value: 'Engagement rate (%)', angle: -90, position: 'insideLeft', fill: palette.tick, fontSize: 12 }}
+                  />
+                  <Tooltip content={<CustomTooltip unit="%" />} cursor={{ fill: 'rgba(17,24,39,0.04)' }} />
+                  <Bar dataKey="Engagement Rate" name="Avg engagement rate" radius={[4, 4, 0, 0]}>
+                    <Cell fill={palette.media} />
+                    <Cell fill={palette.neutral} />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </ChartSection>
+        ) : null}
 
           {/* TASK 3 */}
+        {activeTab === 'task3' ? (
           <ChartSection
             id="task3"
-            title="Task 3 — Media Interaction by Day of Week"
-            description="Dual-axis chart: media views (bars, left axis) and media engagements (line, right axis) per weekday. Spike day highlighted in rose. Data from the last 3 months of the dataset (Aug–Oct 2020)."
-            filters={["Last 3 Months (Aug–Oct 2020)", "Even impressions", "Odd tweetDate", "charCount > 30", "Exclude letter 'H'"]}
+            title="Task 3 — media interaction by weekday"
+            description="Media views (bars) and media engagements (line) by weekday for the last 3 months (Aug–Oct 2020)."
+            filters={["Last 3 months (Aug–Oct 2020)", "Even impressions", "Odd tweetDate", "charCount > 30", "Exclude letter 'H'"]}
             windows={[{ start: "07:00", end: "11:00" }, { start: "15:00", end: "17:00" }]}
             overrideTime={overrideTime}
             dataCount={task3DataObj.count}
-            caveatMessage="The 'exclude letter H' filter is highly restrictive (H appears in very common words like 'the', 'this', 'that'). 80 tweets matched, giving modest but real chart values. Thursday is the spike day (highest combined media views + engagements)."
-            accentClass="card-accent-teal"
+            caveatMessage="Thursday is the spike day (highest combined media views + engagements)."
           >
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={task3DataObj.chartData} margin={{ top: 20, right: 40, left: 10, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#212c40" />
-                <XAxis dataKey="day" stroke="#94a3b8" />
-                <YAxis yAxisId="left"  stroke="#3b82f6" tick={{ fontSize: 11 }} />
-                <YAxis yAxisId="right" orientation="right" stroke="#10b981" tick={{ fontSize: 11 }} />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend />
-                <Bar yAxisId="left" dataKey="Media Views" name="Media Views (Left)" radius={[4,4,0,0]}>
-                  {task3DataObj.chartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.isSpike ? '#f43f5e' : '#0ea5e9'} />
-                  ))}
-                </Bar>
-                <Line yAxisId="right" type="monotone" dataKey="Media Engagements" name="Media Engagements (Right)" stroke="#10b981" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 8 }} />
-              </ComposedChart>
-            </ResponsiveContainer>
+            <div style={{ width: '100%', height: 320 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={task3DataObj.chartData} margin={{ top: 10, right: 24, left: 16, bottom: 24 }}>
+                  <CartesianGrid stroke={palette.grid} strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="day"
+                    stroke={palette.axis}
+                    tick={{ fill: palette.tick, fontSize: 12 }}
+                    label={{ value: 'Weekday', position: 'insideBottom', offset: -10, fill: palette.tick, fontSize: 12 }}
+                  />
+                  <YAxis
+                    yAxisId="left"
+                    stroke={palette.axis}
+                    tick={{ fill: palette.tick, fontSize: 12 }}
+                    label={{ value: 'Media views', angle: -90, position: 'insideLeft', fill: palette.tick, fontSize: 12 }}
+                  />
+                  <YAxis
+                    yAxisId="right"
+                    orientation="right"
+                    stroke={palette.axis}
+                    tick={{ fill: palette.tick, fontSize: 12 }}
+                    label={{ value: 'Media engagements', angle: 90, position: 'insideRight', fill: palette.tick, fontSize: 12 }}
+                  />
+                  <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(17,24,39,0.04)' }} />
+                  <Legend />
+                  <Bar yAxisId="left" dataKey="Media Views" name="Media views" radius={[4, 4, 0, 0]}>
+                    {task3DataObj.chartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.isSpike ? palette.hashtag : palette.media} />
+                    ))}
+                  </Bar>
+                  <Line
+                    yAxisId="right"
+                    type="monotone"
+                    dataKey="Media Engagements"
+                    name="Media engagements"
+                    stroke={palette.link}
+                    strokeWidth={2.5}
+                    dot={{ r: 3 }}
+                    activeDot={{ r: 6 }}
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
           </ChartSection>
+        ) : null}
 
           {/* TASK 4 */}
+        {activeTab === 'task4' ? (
           <ChartSection
             id="task4"
-            title="Task 4 — Replies, Retweets, and Likes Comparison"
-            description="Total volume of the three primary social interactions across all tweets posted between June 1 and August 31, 2020."
+            title="Task 4 — replies, retweets, and likes"
+            description="Total volume of replies, retweets, and likes between June 1 and August 31, 2020."
             filters={["Tweet time: Jun 1 – Aug 31 2020 (inclusive)"]}
             dataCount={task4DataObj.count}
-            accentClass="card-accent-rose"
           >
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={task4DataObj.chartData} margin={{ top: 20, right: 30, left: 10, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#212c40" />
-                <XAxis dataKey="name" stroke="#94a3b8" />
-                <YAxis stroke="#94a3b8" />
-                <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(33,44,64,0.2)' }} />
-                <Legend />
-                <Bar dataKey="Count" radius={[4,4,0,0]}>
-                  <Cell fill="#0ea5e9" />
-                  <Cell fill="#a855f7" />
-                  <Cell fill="#f43f5e" />
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            <div style={{ width: '100%', height: 320 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={task4DataObj.chartData} margin={{ top: 10, right: 24, left: 16, bottom: 24 }}>
+                  <CartesianGrid stroke={palette.grid} strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="name"
+                    stroke={palette.axis}
+                    tick={{ fill: palette.tick, fontSize: 12 }}
+                    label={{ value: 'Interaction', position: 'insideBottom', offset: -10, fill: palette.tick, fontSize: 12 }}
+                  />
+                  <YAxis
+                    stroke={palette.axis}
+                    tick={{ fill: palette.tick, fontSize: 12 }}
+                    label={{ value: 'Total count', angle: -90, position: 'insideLeft', fill: palette.tick, fontSize: 12 }}
+                  />
+                  <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(17,24,39,0.04)' }} />
+                  <Bar dataKey="Count" radius={[4, 4, 0, 0]}>
+                    <Cell fill={palette.media} />
+                    <Cell fill={palette.link} />
+                    <Cell fill={palette.hashtag} />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </ChartSection>
+        ) : null}
 
           {/* TASK 5 */}
+        {activeTab === 'task5' ? (
           <ChartSection
             id="task5"
-            title="Task 5 — Monthly Engagement Rate Trend"
-            description="Average monthly engagement rate for media tweets vs. non-media tweets across all months present in the dataset."
+            title="Task 5 — monthly engagement rate trend"
+            description="Average monthly engagement rate for media tweets vs. non-media tweets."
             filters={["All cleaned tweets (no additional row filter)"]}
             dataCount={task5DataObj.count}
-            accentClass="card-accent-amber"
           >
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={task5DataObj.chartData} margin={{ top: 20, right: 30, left: 10, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#212c40" />
-                <XAxis dataKey="month" stroke="#94a3b8" />
-                <YAxis stroke="#94a3b8" unit="%" />
-                <Tooltip content={<CustomTooltip unit="%" />} />
-                <Legend />
-                <Line type="monotone" dataKey="Media Tweets"     name="Tweets with Media"    stroke="#3b82f6" strokeWidth={3} activeDot={{ r: 8 }} />
-                <Line type="monotone" dataKey="Non-Media Tweets" name="Tweets without Media" stroke="#f59e0b" strokeWidth={3} activeDot={{ r: 8 }} />
-              </LineChart>
-            </ResponsiveContainer>
+            <div style={{ width: '100%', height: 320 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={task5DataObj.chartData} margin={{ top: 10, right: 24, left: 16, bottom: 24 }}>
+                  <CartesianGrid stroke={palette.grid} strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="month"
+                    stroke={palette.axis}
+                    tick={{ fill: palette.tick, fontSize: 12 }}
+                    label={{ value: 'Month', position: 'insideBottom', offset: -10, fill: palette.tick, fontSize: 12 }}
+                  />
+                  <YAxis
+                    stroke={palette.axis}
+                    tick={{ fill: palette.tick, fontSize: 12 }}
+                    unit="%"
+                    label={{ value: 'Engagement rate (%)', angle: -90, position: 'insideLeft', fill: palette.tick, fontSize: 12 }}
+                  />
+                  <Tooltip content={<CustomTooltip unit="%" />} cursor={{ fill: 'rgba(17,24,39,0.04)' }} />
+                  <Legend />
+                  <Line type="monotone" dataKey="Media Tweets" name="Media tweets" stroke={palette.media} strokeWidth={2.5} dot={false} activeDot={{ r: 6 }} />
+                  <Line type="monotone" dataKey="Non-Media Tweets" name="Non-media tweets" stroke={palette.neutral} strokeWidth={2.5} dot={false} activeDot={{ r: 6 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </ChartSection>
+        ) : null}
 
           {/* TASK 6 */}
+        {activeTab === 'task6' ? (
           <ChartSection
             id="task6"
-            title="Task 6 — Top 10 Tweets by Engagement"
-            description="Top 10 tweets ranked by total retweets + likes. Since the dataset has no username column, tweets are identified by their ID (last 8 digits) and a truncated text preview."
+            title="Task 6 — top tweets by engagement"
+            description="Top 10 tweets ranked by total retweets + likes."
             filters={["Exclude Sat/Sun", "Even impressions", "Odd tweetDate", "wordCount < 30"]}
             windows={[{ start: "15:00", end: "17:00" }]}
             overrideTime={overrideTime}
             dataCount={task6DataObj.count}
-            accentClass="card-accent-emerald"
           >
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1.5rem', height:'100%', alignItems:'start' }}>
-              {/* Horizontal Bar Chart */}
-              <div style={{ height: '320px' }}>
+            <div className="task6-grid">
+              <div style={{ width: '100%', height: 320 }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart layout="vertical" data={task6DataObj.chartData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#212c40" />
-                    <XAxis type="number" stroke="#94a3b8" />
-                    <YAxis type="category" dataKey="label" stroke="#94a3b8" width={130} tick={{ fontSize: 9 }} />
-                    <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(33,44,64,0.2)' }} />
-                    <Legend />
-                    <Bar dataKey="engagement" name="Retweets + Likes" fill="#10b981" radius={[0,4,4,0]} />
+                  <BarChart layout="vertical" data={task6DataObj.chartData} margin={{ top: 10, right: 24, left: 8, bottom: 10 }}>
+                    <CartesianGrid stroke={palette.grid} strokeDasharray="3 3" />
+                    <XAxis
+                      type="number"
+                      stroke={palette.axis}
+                      tick={{ fill: palette.tick, fontSize: 12 }}
+                      label={{ value: 'Engagement score (retweets + likes)', position: 'insideBottom', offset: -6, fill: palette.tick, fontSize: 12 }}
+                    />
+                    <YAxis
+                      type="category"
+                      dataKey="label"
+                      stroke={palette.axis}
+                      width={180}
+                      tick={{ fill: palette.tick, fontSize: 10 }}
+                    />
+                    <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(17,24,39,0.04)' }} />
+                    <Bar dataKey="engagement" name="Engagement score" fill={palette.media} radius={[0, 4, 4, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
 
-              {/* Leaderboard table */}
-              <div className="custom-table-container">
-                <table className="custom-table">
+              <div className="table-wrap">
+                <table className="table">
                   <thead>
                     <tr>
                       <th>Rank</th>
                       <th>Tweet ID (last 8)</th>
-                      <th>Content Preview</th>
-                      <th style={{ textAlign:'right' }}>RTs</th>
-                      <th style={{ textAlign:'right' }}>Likes</th>
-                      <th style={{ textAlign:'right' }}>Score</th>
+                      <th>Tweet text</th>
+                      <th style={{ textAlign: 'right' }}>Retweets</th>
+                      <th style={{ textAlign: 'right' }}>Likes</th>
+                      <th style={{ textAlign: 'right' }}>Score</th>
                     </tr>
                   </thead>
                   <tbody>
                     {task6DataObj.tableData.map((item, idx) => (
                       <tr key={item.id}>
-                        <td>
-                          <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold ${
-                            idx === 0 ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
-                            idx === 1 ? 'bg-slate-300/20 text-slate-300 border border-slate-300/30' :
-                            idx === 2 ? 'bg-amber-700/20 text-amber-600 border border-amber-700/30' :
-                            'bg-slate-800 text-slate-400'
-                          }`}>{idx + 1}</span>
-                        </td>
-                        <td className="font-mono text-slate-400 text-xs">...{String(item.id).slice(-8)}</td>
-                        <td className="text-slate-300" style={{ maxWidth:'200px' }} title={item.fullText}>
-                          {item.fullText}
-                        </td>
-                        <td style={{ textAlign:'right' }} className="text-accent-number text-slate-400">{item.retweets}</td>
-                        <td style={{ textAlign:'right' }} className="text-accent-number text-slate-400">{item.likes}</td>
-                        <td style={{ textAlign:'right' }} className="text-accent-number font-bold text-emerald-400">{item.engagement}</td>
+                        <td>{idx + 1}</td>
+                        <td className="mono">...{String(item.id).slice(-8)}</td>
+                        <td className="truncate" title={item.fullText}>{item.fullText}</td>
+                        <td className="mono" style={{ textAlign: 'right' }}>{item.retweets}</td>
+                        <td className="mono" style={{ textAlign: 'right' }}>{item.likes}</td>
+                        <td className="mono" style={{ textAlign: 'right', fontWeight: 600 }}>{item.engagement}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -664,20 +767,8 @@ export function App() {
               </div>
             </div>
           </ChartSection>
-
-        </div>
+        ) : null}
       </main>
-
-      {/* Footer */}
-      <footer style={{ background:'#090d16', borderTop:'1px solid #0f172a', padding:'1.5rem 2rem', marginTop:'3rem', textAlign:'center', fontSize:'0.75rem', color:'#64748b' }}>
-        <div style={{ maxWidth:'1400px', margin:'0 auto', display:'flex', flexWrap:'wrap', justifyContent:'space-between', alignItems:'center', gap:'1rem' }}>
-          <div className="flex items-center gap-2">
-            <Award className="w-4 h-4" />
-            Twitter Campaign Analytics Dashboard
-          </div>
-          <div>Built with React, Vite &amp; Recharts · Timezone-locked (IST)</div>
-        </div>
-      </footer>
     </div>
   );
 }
