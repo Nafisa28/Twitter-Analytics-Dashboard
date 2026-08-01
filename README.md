@@ -35,14 +35,20 @@ npm run build
 
 ---
 
+## 🗂️ Dashboard Layout
+
+The dashboard uses a Power BI–style report layout: a top tab bar with **Overview** plus one tab per task (Category Breakdown, Engagement Comparison, Media by Weekday, Replies/RTs/Likes, Monthly Trend, Top Tweets). Only the active tab's chart renders at a time. The Overview tab shows global KPI cards (total tweets, impressions, average engagement rate, total likes). Each task tab shows its chart, a collapsible "Filters applied" summary, and a locked-state placeholder with the exact IST visibility window when the chart is outside its active hours.
+
+---
+
 ## 🌐 Deploying to Vercel (step-by-step)
 
 1. **Push your repo to GitHub** (if not already):
-   ```bash
+```bash
    git add .
    git commit -m "feat: Twitter Analytics Dashboard"
    git push
-   ```
+```
 
 2. **Go to [vercel.com](https://vercel.com)** → sign in with GitHub → click **"Add New Project"**.
 
@@ -107,7 +113,7 @@ npm run build
 
 ## 🛠️ Testing Mode (IST Clock Override)
 
-The header contains a **"Demo Override"** panel with an **"Enable Test Mode"** checkbox.
+Click the gear icon in the top-right of the header to open the **"Testing Mode"** popover, containing an **"Enable testing mode"** checkbox.
 
 - **Default behaviour on page load**: Real-world IST time is used (derived client-side via `Intl.DateTimeFormat` with `Asia/Kolkata` timezone). The checkbox is **unchecked** by default.
 - **When enabled**: You can select a simulated Hour and Minute. The visibility engine (`useVisibleInWindow` hook) immediately re-evaluates all 4 time-locked tasks (1, 2, 3, 6) against the simulated time, toggling their Locked/Active state instantly.
